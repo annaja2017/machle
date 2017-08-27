@@ -1,0 +1,85 @@
+---
+title: "Coursera_machineLearning"
+output: html_document
+---
+# Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here <http://groupware.les.inf.puc-rio.br/har> (see the section on the Weight Lifting Exercise Dataset).
+
+# Data
+
+The training data for this project are available here <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv> The test data are available here <https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv> .
+
+The data for this project come from this source: <http://groupware.les.inf.puc-rio.br/har>. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+# goal
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. 
+
+## analyzing
+
+You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+```{r loading}
+library(caret)
+library(randomForest) 
+
+set.seed(2017)
+
+# loading and training and testing data 
+trainingdata    <- read.csv("pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+testingdata     <- read.csv('pml-testing.csv', na.strings=c("NA","#DIV/0!", ""))
+
+# Check dimensions for number of variables and number of observations
+dim(trainingdata)
+dim(testingdata)
+```
+
+## feature selection
+There are 160 columns of data in both testing and training datasets. Let's check if the columns are the same:
+
+```{r}
+setdiff(colnames(testingdata),colnames(trainingdata))
+setdiff(colnames(trainingdata),colnames(testingdata))
+```
+The columns are the same, except for problem_id in testing data and classe in training data. Some data is irrelevant to this analysis: for example, the "user_name", and time of testing are irrelevant to the model. This includes the first 7 columns. 
+```{r}
+trainingdata     <-trainingdata[,-c(1:7)]
+testingdata      <-testingdata[,-c(1:7)]
+```
+
+Also removing the features that are all NAs:
+```{r}
+trainingdata    <-trainingdata[,colSums(is.na(trainingdata)) == 0]
+testingdata     <-testingdata[,colSums(is.na(testingdata)) == 0]
+
+including_features <- intersect(colnames(trainingdata),colnames(trainingdata))
+```
+The includeing features are: `print(including_features)`
+
+## building the models with cross-validation
+Training datset is segmented into training and testing for cross-validation.
+```{r}
+folds       <- createDataPartition(y=trainingdata$classe, p=0.75, list=FALSE)
+training    <- trainingdata[folds, ] 
+validating  <- trainingdata[-folds, ]
+table(training$classe)
+```
+
+## modeling
+Model the classe using random forest:
+```{r}
+rfModel <- randomForest(classe ~ ., data = training, importance = TRUE)
+predicted <- predict(rfModel, training)
+print(confusionMatrix(predicted, training$classe))
+```
+
+```{r}
+predicted <- predict(rfModel, validating)
+print(confusionMatrix(predicted, validating$classe))
+```
+The classifier has high validation performance: 99%.
+
+## predicting classe of testing data set.
+```{r}
+predicted_classe <- predict(rfModel, testingdata)
+predicted_classe
+```
